@@ -21,7 +21,7 @@ int drm_drop_master(int fd) {
 	return ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
 }
 
-#if defined(__linux__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__NetBSD__) || defined(__redox__)
 int path_is_drm(const char *path) {
 	if (STR_HAS_PREFIX("/dev/dri/", path))
 		return 1;

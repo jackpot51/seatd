@@ -26,6 +26,36 @@
 #define K_ENABLE  K_XLATE
 #define K_DISABLE K_RAW
 #define FRSIG     0 // unimplemented
+#elif defined(__redox__)
+#define FRSIG 0
+#define KDSETMODE 0x4B3A
+#define KDSKBMODE 0x4B45
+#define KD_GRAPHICS 0x01
+#define KD_TEXT 0x00
+#define K_DISABLE 0x04
+#define K_ENABLE 0x03
+
+// From musl include/linux/vt.h
+struct vt_mode {
+	char mode;
+	char waitv;
+	short relsig;
+	short acqsig;
+	short frsig;
+};
+#define VT_SETMODE 0x5602
+#define VT_AUTO 0x00
+#define VT_PROCESS 0x01
+#define VT_ACKACQ 0x02
+struct vt_stat {
+	unsigned short v_active;
+	unsigned short v_signal;
+	unsigned short v_state;
+};
+#define VT_GETSTATE 0x5603
+#define VT_RELDISP 0x5605
+#define VT_ACTIVATE 0x5606
+
 #else
 #error Unsupported platform
 #endif
@@ -131,7 +161,7 @@ static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	path[offset++] = '\0';
 	return 0;
 }
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__redox__)
 static int get_tty_path(int tty, char path[static TTYPATHLEN]) {
 	assert(tty >= 0);
 	if (snprintf(path, TTYPATHLEN, "/dev/tty%d", tty) == -1) {
@@ -166,7 +196,7 @@ int terminal_open(int vt) {
 }
 
 int terminal_current_vt(int fd) {
-#if defined(__linux__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__NetBSD__) || defined(__redox__)
 	struct vt_stat st;
 	int res = ioctl(fd, VT_GETSTATE, &st);
 	if (res == -1) {
@@ -212,7 +242,7 @@ int terminal_set_process_switching(int fd, bool enable) {
 
 int terminal_switch_vt(int fd, int vt) {
 	log_debugf("Switching to VT %d", vt);
-	if (ioctl(fd, VT_ACTIVATE, vt) == -1) {
+	if (ioctl(fd, VT_ACTIVATE, (void *)(long)vt) == -1) {
 		log_errorf("Could not activate VT %d: %s", vt, strerror(errno));
 		return -1;
 	}
@@ -222,7 +252,7 @@ int terminal_switch_vt(int fd, int vt) {
 
 int terminal_ack_release(int fd) {
 	log_debug("Acking VT release");
-	if (ioctl(fd, VT_RELDISP, 1) == -1) {
+	if (ioctl(fd, VT_RELDISP, (void *)1) == -1) {
 		log_errorf("Could not ack VT release: %s", strerror(errno));
 		return -1;
 	}
@@ -232,7 +262,7 @@ int terminal_ack_release(int fd) {
 
 int terminal_ack_acquire(int fd) {
 	log_debug("Acking VT acquire");
-	if (ioctl(fd, VT_RELDISP, VT_ACKACQ) == -1) {
+	if (ioctl(fd, VT_RELDISP, (void *)VT_ACKACQ) == -1) {
 		log_errorf("Could not ack VT acquire: %s", strerror(errno));
 		return -1;
 	}
@@ -242,7 +272,7 @@ int terminal_ack_acquire(int fd) {
 
 int terminal_set_keyboard(int fd, bool enable) {
 	log_debugf("Setting KD keyboard state to %d", enable);
-	if (ioctl(fd, KDSKBMODE, enable ? K_ENABLE : K_DISABLE) == -1) {
+	if (ioctl(fd, KDSKBMODE, enable ? (void *)K_ENABLE : (void *)K_DISABLE) == -1) {
 		log_errorf("Could not set KD keyboard mode to %s: %s",
 			   enable ? "enabled" : "disabled", strerror(errno));
 		return -1;
@@ -269,7 +299,7 @@ int terminal_set_keyboard(int fd, bool enable) {
 
 int terminal_set_graphics(int fd, bool enable) {
 	log_debugf("Setting KD graphics state to %d", enable);
-	if (ioctl(fd, KDSETMODE, enable ? KD_GRAPHICS : KD_TEXT) == -1) {
+	if (ioctl(fd, KDSETMODE, enable ? (void *)KD_GRAPHICS : (void *)KD_TEXT) == -1) {
 		log_errorf("Could not set KD graphics mode to %s: %s", enable ? "graphics" : "text",
 			   strerror(errno));
 		return -1;

@@ -8,6 +8,11 @@
 
 #include "connection.h"
 
+#ifndef MSG_NOSIGNAL
+//TODO: implement MSG_NOSIGNAL on Redox
+#define MSG_NOSIGNAL 0
+#endif
+
 static inline uint32_t connection_buffer_mask(const uint32_t idx) {
 	return idx & (CONNECTION_BUFFER_SIZE - 1);
 }

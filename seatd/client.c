@@ -28,7 +28,7 @@
 #include "terminal.h"
 
 static int get_peer(int fd, pid_t *pid, uid_t *uid, gid_t *gid) {
-#if defined(__linux__)
+#if defined(__linux__) || defined(__redox__)
 	struct ucred cred;
 	socklen_t len = sizeof cred;
 	if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1) {
